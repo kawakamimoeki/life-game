@@ -1,105 +1,87 @@
 /* eslint-disable no-unused-vars */
 /* eslint-disable no-undef */
 
+GRID_W = 51
+GRID_H = 51
+
 function setup () {
-  WHITE = color(255)
-  BROWN = color(102, 51, 0)
-  GREEN = color(0, 102, 0)
   createCanvas(600, 600)
-  frameRate(5)
   noStroke()
-  sheeps = []
-  grasses = []
-  patchSize = 5
-  rowsOfGrass = height / patchSize
-
-  for (let i = 0; i < 10; i++) {
-    sheeps.push(new Sheep(random(width), random(height)))
-  }
-
-  for (let x = 0; x < width; x += patchSize) {
-    for (let y = 0; y < height; y += patchSize) {
-      grasses.push(new Grass(x, y, patchSize))
-    }
-  }
+  SZ = width / GRID_W
+  cellList = createCellList()
 }
 
 function draw () {
-  background(255)
-  grasses.forEach(grass => grass.update())
-  sheeps.forEach(sheep => sheep.update())
+  frameRate(10)
+  cellList = update(cellList)
+  cellList.forEach((row) => {
+    row.forEach((cell) => {
+      cell.display()
+    })
+  })
 }
 
-class Sheep {
-  constructor (x, y) {
-    this.x = x
-    this.y = y
-    this.age = 0
-    this.move = 10
-    this.energy = Sheep.baseEnergy
-    this.col = WHITE
+class Cell {
+  constructor (c, r, state = 0) {
+    this.c = c
+    this.r = r
+    this.state = state
   }
 
-  static birthCost = 25
-  static maxBirthableAge = 40
-  static baseEnergy = 30
-  static lifeSpan = 60
-
-  update () {
-    this.age += 1
-    this.col = color(255 - 255 / 100 * this.age)
-    if (this.age > Sheep.lifeSpan) sheeps.splice(this)
-
-    this.energy -= 1
-    if (this.energy <= 0) sheeps.splice(this)
-
-    if (this.energy > Sheep.baseEnergy + Sheep.birthCost &&
-          this.age < Sheep.maxBirthableAge) {
-      this.energy -= Sheep.birthCost
-      sheeps.push(new Sheep(this.x, this.y))
+  display () {
+    if (this.state === 1) {
+      fill(0)
+    } else {
+      fill(255)
     }
-    this.x += random(-this.move, this.move)
-    this.y += random(-this.move, this.move)
-
-    if (this.x > width) this.x %= width
-    if (this.y > height) this.y %= height
-    if (this.x < 0) this.x += width
-    if (this.y < 0) this.y += height
-
-    const xscl = int(this.x / patchSize)
-    const yscl = int(this.y / patchSize)
-    const grass = grasses[xscl * rowsOfGrass + yscl]
-
-    if (grass.eaten === false) {
-      this.energy += grass.energy
-      grass.eaten = true
-    }
-    fill(this.col)
-    ellipse(this.x, this.y, 5 * this.energy / Sheep.baseEnergy, 5 * this.energy / Sheep.baseEnergy)
-  }
-}
-
-class Grass {
-  constructor (x, y, sz) {
-    this.x = x
-    this.y = y
-    this.energy = 5
-    this.eaten = false
-    this.sz = sz
+    rect(SZ * this.r, SZ * this.c, SZ, SZ)
   }
 
-  static growProbability = 0.1
-
-  update () {
-    if (this.eaten) {
-      if (random(1) < 0.1) {
-        this.eaten = false
+  checkNeighbors () {
+    let neighbors = 0
+    const dList = [[-1, -1], [-1, 0], [-1, 1], [1, 0], [1, -1], [1, 1], [0, -1], [0, 1]]
+    dList.forEach((d) => {
+      try {
+        if (cellList[this.r + d[0]][this.c + d[1]].state === 1) {
+          neighbors++
+        }
+      } catch {}
+    })
+    if (this.state === 1) {
+      if ([2, 3].includes(neighbors)) {
+        return 1
       } else {
-        fill(BROWN)
+        return 0
       }
     } else {
-      fill(GREEN)
+      if (neighbors === 3) {
+        return 1
+      } else {
+        return 0
+      }
     }
-    rect(this.x, this.y, this.sz, this.sz)
   }
+}
+
+function createCellList () {
+  const newList = []
+  for (let j = 0; j < GRID_H; j++) {
+    newList.push([])
+    for (let i = 0; i < GRID_W; i++) {
+      newList[j].push(new Cell(i, j, random([0, 1])))
+    }
+  }
+  newList[int(GRID_H / 2)][int(GRID_W / 2)].state = 1
+  return newList
+}
+
+function update (cellList) {
+  const newList = []
+  cellList.forEach((row, r) => {
+    newList.push([])
+    row.forEach((cell, c) => {
+      newList[r].push(new Cell(c, r, cell.checkNeighbors(cellList)))
+    })
+  })
+  return newList
 }
